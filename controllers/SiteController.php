@@ -3,40 +3,24 @@
 namespace app\controllers;
 
 use Yii;
-use yii\filters\AccessControl;
 use yii\web\Controller;
 use yii\web\Response;
-use yii\filters\VerbFilter;
-use app\models\LoginForm;
-use app\models\ContactForm;
+use app\ext\IdentData;
 
+/**
+ * Основной контроллер
+ */
 class SiteController extends Controller
 {
     /**
-     * {@inheritdoc}
+     * 'Белый список' для действия actionGetIdentData()
      */
-    public function behaviors()
-    {
-        return [
-            'access' => [
-                'class' => AccessControl::className(),
-                'only' => ['logout'],
-                'rules' => [
-                    [
-                        'actions' => ['logout'],
-                        'allow' => true,
-                        'roles' => ['@'],
-                    ],
-                ],
-            ],
-            'verbs' => [
-                'class' => VerbFilter::className(),
-                'actions' => [
-                    'logout' => ['post'],
-                ],
-            ],
-        ];
-    }
+    public static $identModelClassList = [
+        'billboard' => '\app\models\Billboard',
+        'metro' => '\app\models\Metro',
+        'transport' => '\app\models\Transport',
+    ];
+
 
     /**
      * {@inheritdoc}
@@ -47,82 +31,47 @@ class SiteController extends Controller
             'error' => [
                 'class' => 'yii\web\ErrorAction',
             ],
-            'captcha' => [
-                'class' => 'yii\captcha\CaptchaAction',
-                'fixedVerifyCode' => YII_ENV_TEST ? 'testme' : null,
-            ],
         ];
     }
 
     /**
      * Displays homepage.
-     *
+     * Это одностраничное приложение.
+     * Данные только отображаются на экране. Обратного взаимодействия нет (в ТЗ этого не указано).
+     * Для оптимизации можно использовать Vue.js.
      * @return string
      */
     public function actionIndex()
     {
-        return $this->render('index');
-    }
-
-    /**
-     * Login action.
-     *
-     * @return Response|string
-     */
-    public function actionLogin()
-    {
-        if (!Yii::$app->user->isGuest) {
-            return $this->goHome();
-        }
-
-        $model = new LoginForm();
-        if ($model->load(Yii::$app->request->post()) && $model->login()) {
-            return $this->goBack();
-        }
-
-        $model->password = '';
-        return $this->render('login', [
-            'model' => $model,
+        return $this->render('index', [
+            'identData' => [
+                'billboard' => [
+                    'caption' => 'BillBoards',
+                    'data' => IdentData::getIdentData('\app\models\Billboard'),
+                ],
+                'transport' => [
+                    'caption' => 'Transport',
+                    'data' => IdentData::getIdentData('\app\models\Transport'),
+                ],
+                'metro' => [
+                    'caption' => 'Metro',
+                    'data' => IdentData::getIdentData('\app\models\Metro'),
+                ],
+            ],
         ]);
     }
 
     /**
-     * Logout action.
+     * Данный код не используется в задаче, но показывает возможности такого подхода к решению задачи.
+     * Действие возвращает данные сооветстующей модели в формате JSON.
      *
-     * @return Response
+     * @param $identModelName string. Ключ для $identModelClassList
+     * @return array. Результат ответа сервера в виде: {"10":"metro_1","20":"metro_2","30":"metro_3"}.
      */
-    public function actionLogout()
+    public function actionGetIdentData($identModelName)
     {
-        Yii::$app->user->logout();
-
-        return $this->goHome();
-    }
-
-    /**
-     * Displays contact page.
-     *
-     * @return Response|string
-     */
-    public function actionContact()
-    {
-        $model = new ContactForm();
-        if ($model->load(Yii::$app->request->post()) && $model->contact(Yii::$app->params['adminEmail'])) {
-            Yii::$app->session->setFlash('contactFormSubmitted');
-
-            return $this->refresh();
-        }
-        return $this->render('contact', [
-            'model' => $model,
-        ]);
-    }
-
-    /**
-     * Displays about page.
-     *
-     * @return string
-     */
-    public function actionAbout()
-    {
-        return $this->render('about');
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $identModelClassName = isset(static::$identModelClassList[$identModelName]) ? static::$identModelClassList[$identModelName] : '';
+        return IdentData::getIdentData($identModelClassName);
     }
 }
